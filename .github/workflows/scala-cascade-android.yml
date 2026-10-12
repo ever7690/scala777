@@ -24,6 +24,15 @@ jobs:
           if [ -d /root/.config/godot ] && [ ! -d ~/.config/godot ]; then
             mv /root/.config/godot ~/.config/godot
           fi
+          cat > "$HOME/.config/godot/editor_settings-4.3.tres" <<'SETTINGS'
+          [gd_resource type="EditorSettings" format=3]
+          [resource]
+          export/android/java_sdk_path = "/usr/lib/jvm/java-17-openjdk-amd64"
+          export/android/android_sdk_path = "/usr/lib/android-sdk"
+          export/android/debug_keystore = "/root/debug.keystore"
+          export/android/debug_keystore_user = "androiddebugkey"
+          export/android/debug_keystore_pass = "android"
+          SETTINGS
           godot --headless --version
           java -version
       - name: Importar y validar GDScript
