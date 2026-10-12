@@ -1,0 +1,73 @@
+name: SCALA CASCADE Android APK
+on:
+  push:
+    branches: [scala-cascade-android]
+    paths:
+      - "SCALA_CASCADE/**"
+      - ".github/workflows/scala-cascade-android.yml"
+  workflow_dispatch:
+jobs:
+  android-debug:
+    runs-on: ubuntu-24.04
+    container:
+      image: barichello/godot-ci:4.3
+    steps:
+      - name: Obtener proyecto
+        uses: actions/checkout@v4
+      - name: Preparar Godot 4.3 y export templates
+        run: |
+          set -eux
+          mkdir -p ~/.local/share/godot/export_templates/ ~/.config/godot/
+          if [ -d /root/.local/share/godot/export_templates/4.3.stable ] && [ ! -d ~/.local/share/godot/export_templates/4.3.stable ]; then
+            mv /root/.local/share/godot/export_templates/4.3.stable ~/.local/share/godot/export_templates/4.3.stable
+          fi
+          if [ -d /root/.config/godot ] && [ ! -d ~/.config/godot ]; then
+            mv /root/.config/godot ~/.config/godot
+          fi
+          godot --headless --version
+          java -version
+      - name: Importar y validar GDScript
+        run: |
+          set -eu
+          godot --headless --editor --path SCALA_CASCADE --import --quit 2>&1 | tee import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|ERROR:.*(script|load|parse)' import.log; then
+            echo "ERROR: Godot informó errores de importación o scripts"
+            exit 1
+          fi
+      - name: Preparar firma de depuración
+        run: |
+          set -eu
+          mkdir -p "$HOME/.android"
+          if [ ! -f "$HOME/.android/debug.keystore" ]; then
+            keytool -genkeypair -keystore "$HOME/.android/debug.keystore" -alias androiddebugkey -storepass android -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=SCALA Games,C=BO"
+          fi
+      - name: Exportar APK Android
+        run: |
+          set -eu
+          mkdir -p SCALA_CASCADE/build
+          export GODOT_ANDROID_KEYSTORE_DEBUG_PATH="$HOME/.android/debug.keystore"
+          export GODOT_ANDROID_KEYSTORE_DEBUG_USER="androiddebugkey"
+          export GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD="android"
+          godot --headless --path SCALA_CASCADE --export-debug Android SCALA_CASCADE/build/SCALA_CASCADE_DEBUG.apk 2>&1 | tee export.log
+          test -s SCALA_CASCADE/build/SCALA_CASCADE_DEBUG.apk
+      - name: Comprobar integridad del instalador
+        run: |
+          set -eu
+          python3 - <<'PY'
+          import zipfile,os
+          p='SCALA_CASCADE/build/SCALA_CASCADE_DEBUG.apk'
+          with zipfile.ZipFile(p) as z:
+              bad=z.testzip()
+              assert bad is None, f'Archivo corrupto: {bad}'
+              names=set(z.namelist())
+              assert 'AndroidManifest.xml' in names
+              assert any('arm64-v8a' in n for n in names), 'Falta ARM64'
+              assert any(n.endswith('.pck') for n in names) or any(n.startswith('assets/') for n in names), 'Faltan recursos'
+          print('APK estructura correcta:',os.path.getsize(p),'bytes')
+          PY
+      - name: Descargar APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: SCALA_CASCADE_ANDROID_DEBUG
+          path: SCALA_CASCADE/build/SCALA_CASCADE_DEBUG.apk
+          if-no-files-found: error
