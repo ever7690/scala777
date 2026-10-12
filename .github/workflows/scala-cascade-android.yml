@@ -70,18 +70,13 @@ jobs:
       - name: Comprobar integridad del instalador
         run: |
           set -eu
-          python3 - <<'PY'
-          import zipfile,os
-          p='SCALA_CASCADE/build/SCALA_CASCADE_DEBUG.apk'
-          with zipfile.ZipFile(p) as z:
-              bad=z.testzip()
-              assert bad is None, f'Archivo corrupto: {bad}'
-              names=set(z.namelist())
-              assert 'AndroidManifest.xml' in names
-              assert any('arm64-v8a' in n for n in names), 'Falta ARM64'
-              assert any(n.endswith('.pck') for n in names) or any(n.startswith('assets/') for n in names), 'Faltan recursos'
-          print('APK estructura correcta:',os.path.getsize(p),'bytes')
-          PY
+          APK="SCALA_CASCADE/build/SCALA_CASCADE_DEBUG.apk"
+          test -s "$APK"
+          unzip -t -q "$APK"
+          unzip -Z1 "$APK" | grep -q '^AndroidManifest.xml$'
+          unzip -Z1 "$APK" | grep -q '^lib/arm64-v8a/libgodot_android.so$'
+          unzip -Z1 "$APK" | grep -q '^assets/'
+          echo "APK Android presente, contenido válido, motor ARM64 y recursos verificados"
       - name: Descargar APK
         uses: actions/upload-artifact@v4
         with:
