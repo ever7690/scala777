@@ -43,6 +43,14 @@ jobs:
             echo "ERROR: Godot informó errores de importación o scripts"
             exit 1
           fi
+      - name: Ejecutar prueba real de arranque del juego
+        run: |
+          set -eu
+          godot --headless --path SCALA_CASCADE --quit-after 30 2>&1 | tee runtime.log
+          if grep -E 'SCRIPT ERROR|Invalid call|Invalid access|Parse Error' runtime.log; then
+            echo "ERROR: Falló el arranque del juego"
+            exit 1
+          fi
       - name: Preparar firma de depuración
         run: |
           set -eu
@@ -57,7 +65,7 @@ jobs:
           export GODOT_ANDROID_KEYSTORE_DEBUG_PATH="$HOME/.android/debug.keystore"
           export GODOT_ANDROID_KEYSTORE_DEBUG_USER="androiddebugkey"
           export GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD="android"
-          godot --headless --path SCALA_CASCADE --export-debug Android SCALA_CASCADE/build/SCALA_CASCADE_DEBUG.apk 2>&1 | tee export.log
+          godot --headless --path SCALA_CASCADE --export-debug Android build/SCALA_CASCADE_DEBUG.apk 2>&1 | tee export.log
           test -s SCALA_CASCADE/build/SCALA_CASCADE_DEBUG.apk
       - name: Comprobar integridad del instalador
         run: |
