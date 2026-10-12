@@ -430,7 +430,7 @@ func _setup_ui() -> void:
 
 func _tone_stream(freq_scale: float = 1.0, notes: int = 16) -> AudioStreamWAV:
 	var rate := 22050
-	var samples := rate * 4 if notes > 8 else rate / 4
+	var samples: int = rate * 4 if notes > 8 else int(rate / 4)
 	var pcm := PackedByteArray()
 	pcm.resize(samples * 2)
 	var tune := [262.0, 330.0, 392.0, 523.0, 392.0, 330.0, 294.0, 392.0, 440.0, 523.0, 587.0, 523.0, 440.0, 392.0, 330.0, 294.0]
