@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+<defs>
+ <linearGradient id="night" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0b4050"/><stop offset="1" stop-color="#168b79"/></linearGradient>
+ <linearGradient id="fur" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffd68d"/><stop offset="1" stop-color="#e96d43"/></linearGradient>
+</defs>
+<rect x="0" y="0" width="256" height="256" rx="52" fill="url(#night)"/>
+<circle cx="192" cy="58" r="27" fill="#fff2b5" opacity=".85"/>
+<path d="M48 197C76 178 98 180 112 189C149 166 183 176 215 198L215 221H42Z" fill="#58bf99"/>
+<path d="M55 83L72 23L119 72L137 70L184 23L202 83L186 169Q129 206 70 170Z" fill="url(#fur)" stroke="#fff0ce" stroke-width="5" stroke-linejoin="round"/>
+<path d="M57 85L74 41L104 84ZM155 84L181 42L199 85Z" fill="#edb5a2"/>
+<path d="M80 138Q128 178 175 138Q174 189 128 203Q85 186 80 138Z" fill="#fff2db"/>
+<ellipse cx="102" cy="121" rx="9" ry="14" fill="#1d3b50"/><ellipse cx="156" cy="121" rx="9" ry="14" fill="#1d3b50"/>
+<circle cx="99" cy="117" r="3" fill="#fff"/><circle cx="153" cy="117" r="3" fill="#fff"/>
+<path d="M117 159Q129 167 141 159L129 174Z" fill="#50364d"/>
+<path d="M78 190Q128 217 178 190" fill="none" stroke="#38e4cc" stroke-width="12" stroke-linecap="round"/>
+<path d="M203 133L211 144L224 146L214 157L216 169L203 163L190 169L192 157L183 146L196 144Z" fill="#ffeab0"/>
+</svg>
