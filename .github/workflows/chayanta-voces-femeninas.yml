@@ -1,0 +1,85 @@
+name: Chayanta - dos voces femeninas sinteticas originales
+on:
+  push:
+    branches:
+      - chayanta-voces-femeninas-originales-20261108
+    paths:
+      - ".github/workflows/chayanta-voces-femeninas.yml"
+      - "chayanta_voces_femeninas_originales.py"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sintetizar:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 95
+    steps:
+      - name: Descargar proyecto
+        uses: actions/checkout@v4
+      - name: Instalar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Instalar FFmpeg y OpenVoice MIT
+        shell: bash
+        run: |
+          set -euxo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
+          git clone --depth 1 https://github.com/myshell-ai/OpenVoice.git OpenVoice
+          python -m pip install -U pip
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install "transformers>=4.46,<5" "huggingface_hub>=0.30" safetensors scipy numpy librosa soundfile edge-tts imageio-ffmpeg "eng_to_ipa>=0.0.2" inflect unidecode pypinyin cn2an jieba langid ipython
+      - name: Sintetizar y convertir las 44 escenas del cuento
+        env:
+          HF_HUB_DISABLE_TELEMETRY: '1'
+          OMP_NUM_THREADS: '3'
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m py_compile chayanta_voces_femeninas_originales.py
+          python -u chayanta_voces_femeninas_originales.py
+      - name: Verificar MP3 completo y ZIP
+        shell: bash
+        run: |
+          set -euo pipefail
+          D=CHAYANTA_VOCES_FEMENINAS
+          FILE="$D/CHAYANTA_DOS_VOCES_FEMENINAS_SAPITOS.mp3"
+          ZIP="$D/CHAYANTA_DOS_VOCES_FEMENINAS_SAPITOS.zip"
+          test -s "$FILE"
+          test -s "$ZIP"
+          test -s "$D/MUESTRA_ROMALDINA_FEMENINA.mp3"
+          test -s "$D/MUESTRA_CASIANA_FEMENINA.mp3"
+          unzip -tq "$ZIP"
+          ffprobe -v error -show_entries format=duration,size -of default=noprint_wrappers=1 "$FILE"
+          echo MP3_Y_ZIP_FEMENINOS_VERIFICADOS
+      - name: Guardar MP3 y muestras para descarga
+        uses: actions/upload-artifact@v4
+        with:
+          name: CHAYANTA_DOS_VOCES_FEMENINAS_PRUEBA
+          path: |
+            CHAYANTA_VOCES_FEMENINAS/CHAYANTA_DOS_VOCES_FEMENINAS_SAPITOS.mp3
+            CHAYANTA_VOCES_FEMENINAS/CHAYANTA_DOS_VOCES_FEMENINAS_SAPITOS.zip
+            CHAYANTA_VOCES_FEMENINAS/MUESTRA_ROMALDINA_FEMENINA.mp3
+            CHAYANTA_VOCES_FEMENINAS/MUESTRA_CASIANA_FEMENINA.mp3
+          retention-days: 14
+          if-no-files-found: error
+      - name: Publicar descargas directas en una release aparte
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euxo pipefail
+          D=CHAYANTA_VOCES_FEMENINAS
+          TAG="chayanta-voces-femeninas-prueba-20261108"
+          gh release create "$TAG" \
+            "$D/CHAYANTA_DOS_VOCES_FEMENINAS_SAPITOS.mp3" \
+            "$D/CHAYANTA_DOS_VOCES_FEMENINAS_SAPITOS.zip" \
+            "$D/MUESTRA_ROMALDINA_FEMENINA.mp3" \
+            "$D/MUESTRA_CASIANA_FEMENINA.mp3" \
+            --repo "${{ github.repository }}" \
+            --target "${{ github.sha }}" \
+            --title "Chayanta - voces femeninas sintéticas (prueba)" \
+            --notes "PRUEBA: perfiles femeninos ficticios; no son clones de personas privadas. Quechua del modelo MMS-TTS quh (CC BY-NC 4.0, no comercial). La pronunciación y las edades percibidas de las voces no están validadas."
