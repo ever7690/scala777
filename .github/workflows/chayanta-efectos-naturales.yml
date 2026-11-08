@@ -1,0 +1,145 @@
+name: Chayanta - descargar y preparar efectos naturales con licencia libre
+on:
+  push:
+    branches:
+      - chayanta-efectos-naturales-20261108
+    paths:
+      - ".github/workflows/chayanta-efectos-naturales.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  preparar-efectos:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Descargar repositorio sin modificar el cuento
+        uses: actions/checkout@v4
+
+      - name: Preparar FFmpeg y fuentes CC0 / dominio publico
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg zip
+          mkdir -p CHAYANTA_EFECTOS_REALES fuentes_originales
+          curl --fail --location --retry 5 --retry-delay 3 --max-time 220 \
+            --user-agent 'ChayantaStoryAudioEffects/1.0 (CreativeCommons research)' \
+            'https://upload.wikimedia.org/wikipedia/commons/7/7f/Croaking_common_toad_%26_mosquitos.ogv' \
+            -o fuentes_originales/sapo_croando_CC0.ogv
+          curl --fail --location --retry 5 --retry-delay 3 --max-time 120 \
+            --user-agent 'ChayantaStoryAudioEffects/1.0 (PublicDomain research)' \
+            'https://upload.wikimedia.org/wikipedia/commons/0/0e/Rain_%281%29.ogg' \
+            -o fuentes_originales/lluvia_CC0_PD.ogg
+          ffprobe -v error -show_entries format=duration,size -of default=noprint_wrappers=1 fuentes_originales/sapo_croando_CC0.ogv
+          ffprobe -v error -show_entries format=duration,size -of default=noprint_wrappers=1 fuentes_originales/lluvia_CC0_PD.ogg
+
+      - name: Extraer sonido real de sapo y lluvia a archivos de edicion
+        shell: bash
+        run: |
+          set -euo pipefail
+          D=CHAYANTA_EFECTOS_REALES
+          ffmpeg -hide_banner -loglevel error -y -i fuentes_originales/sapo_croando_CC0.ogv \
+            -vn -af 'highpass=f=110,lowpass=f=6000,loudnorm=I=-21:TP=-2:LRA=11' \
+            -ar 48000 -ac 2 -c:a pcm_s16le "$D/01_SAPO_CROANDO_REAL.wav"
+          ffmpeg -hide_banner -loglevel error -y -i fuentes_originales/lluvia_CC0_PD.ogg \
+            -vn -af 'highpass=f=60,lowpass=f=12000,loudnorm=I=-21:TP=-2:LRA=11' \
+            -ar 48000 -ac 2 -c:a pcm_s16le "$D/02_LLUVIA_REAL.wav"
+          ffmpeg -hide_banner -loglevel error -y -i "$D/01_SAPO_CROANDO_REAL.wav" \
+            -codec:a libmp3lame -b:a 192k "$D/01_SAPO_CROANDO_REAL.mp3"
+          ffmpeg -hide_banner -loglevel error -y -i "$D/02_LLUVIA_REAL.wav" \
+            -codec:a libmp3lame -b:a 192k "$D/02_LLUVIA_REAL.mp3"
+
+      - name: Atribuciones y pautas de montaje
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > CHAYANTA_EFECTOS_REALES/LEEME_FUENTES_LICENCIAS.txt <<'TXT'
+          PROTOTIPO AUDIOVISUAL: LOS SAPITOS DE CHAYANTA
+          DOS GRABACIONES REALES, NO EFECTOS SINTETIZADOS
+
+          01_SAPO_CROANDO_REAL (WAV y MP3)
+          Autor de la grabacion: 5snake5
+          Grabado en Alemania en 2019; especie Bufo bufo, NO especie comprobada de Chayanta.
+          Titulo original: Croaking common toad & mosquitos
+          Fuente: https://commons.wikimedia.org/wiki/File:Croaking_common_toad_%26_mosquitos.ogv
+          Licencia: CC0 1.0 - https://creativecommons.org/publicdomain/zero/1.0/
+
+          02_LLUVIA_REAL (WAV y MP3)
+          Autor de la grabacion: ezwa
+          Titulo original: Rain (1).ogg
+          Fuente: https://commons.wikimedia.org/wiki/File:Rain_(1).ogg
+          Licencia: dominio publico, declarada por el autor.
+
+          TRATAMIENTO APLICADO
+          Se extrajo la pista de sonido del original del sapo, se aplicaron filtros
+          de frecuencias y normalizacion moderada y se exporto a 48 kHz 16 bit
+          stereo WAV y 192 kbit/s MP3.
+          Efectos para montaje en capas, a volumen inferior a las voces.
+          No se ha agregado musica ni editado ni reemplazado el audio narrado.
+          En el cuento aprobado ya hay croares sinteticos: el editor debe evitar
+          duplicaciones molestas al sobreponer los efectos naturales.
+          NOTA: el modelo TTS original del cuento tiene una licencia aparte
+          CC BY-NC 4.0 que restringe el uso comercial.
+          TXT
+          cd CHAYANTA_EFECTOS_REALES
+          zip -q -9 CHAYANTA_EFECTOS_NATURALES_SAPITOS_LLUVIA.zip \
+            01_SAPO_CROANDO_REAL.wav 01_SAPO_CROANDO_REAL.mp3 \
+            02_LLUVIA_REAL.wav 02_LLUVIA_REAL.mp3 LEEME_FUENTES_LICENCIAS.txt
+
+      - name: Verificar duracion y contenido de sonido y ZIP
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import wave, audioop, os, zipfile
+          from pathlib import Path
+          p=Path("CHAYANTA_EFECTOS_REALES")
+          for name,expected_min,expected_max in [
+              ("01_SAPO_CROANDO_REAL.wav",10,14),
+              ("02_LLUVIA_REAL.wav",40,50)]:
+              f=p/name
+              with wave.open(str(f),"rb") as w:
+                  d=w.getnframes()/w.getframerate()
+                  assert expected_min < d < expected_max,(name,d)
+                  samples=w.readframes(min(w.getframerate()*3,w.getnframes()))
+                  rms=audioop.rms(samples,w.getsampwidth())
+                  assert rms>15,(name,rms)
+                  print(name,"segundos",round(d,2),"RMS",rms,flush=True)
+          for m in ("01_SAPO_CROANDO_REAL.mp3","02_LLUVIA_REAL.mp3"):
+              assert (p/m).stat().st_size>20000
+          f=p/"CHAYANTA_EFECTOS_NATURALES_SAPITOS_LLUVIA.zip"
+          with zipfile.ZipFile(f) as z:
+              assert z.testzip() is None
+              assert len(z.namelist())==5
+          print("EFECTOS_NATURALES_VERIFICADOS",flush=True)
+          PY
+
+      - name: Guardar paquete de efectos para descargar
+        uses: actions/upload-artifact@v4
+        with:
+          name: CHAYANTA_SAPOS_Y_LLUVIA_REALES
+          path: CHAYANTA_EFECTOS_REALES/
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Crear enlaces de descarga directa de efectos
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          D=CHAYANTA_EFECTOS_REALES
+          gh release create chayanta-efectos-naturales-20261108 \
+            "$D/01_SAPO_CROANDO_REAL.mp3" \
+            "$D/01_SAPO_CROANDO_REAL.wav" \
+            "$D/02_LLUVIA_REAL.mp3" \
+            "$D/02_LLUVIA_REAL.wav" \
+            "$D/CHAYANTA_EFECTOS_NATURALES_SAPITOS_LLUVIA.zip" \
+            "$D/LEEME_FUENTES_LICENCIAS.txt" \
+            --repo "${{ github.repository }}" \
+            --target "${{ github.sha }}" \
+            --title "Chayanta: grabaciones naturales de sapo y lluvia (CC0 / dominio publico)" \
+            --notes "Audio real grabado. Sapo de Alemania, no especie documentada de Chayanta. Fuentes/licencias en el archivo LEEME. Sin modificar la narración ni incluir música."
