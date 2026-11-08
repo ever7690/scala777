@@ -31,7 +31,9 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install numpy scipy ipython
           python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
-          which ffmpeg
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
+          ffmpeg -version | head -n 1
           df -h .
 
       - name: Generar de forma real el audio quechua del cuaderno
