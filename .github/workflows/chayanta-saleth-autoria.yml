@@ -1,0 +1,85 @@
+name: Chayanta - cuento con autoria Saleth Shara cala quilla
+on:
+  push:
+    branches:
+      - chayanta-autora-saleth-shara-cala-quilla-20261108
+    paths:
+      - ".github/workflows/chayanta-saleth-autoria.yml"
+      - "chayanta_cuento_saleth_shara_cala_quilla.py"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sintetizar:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 95
+    steps:
+      - name: Descargar proyecto
+        uses: actions/checkout@v4
+      - name: Instalar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Instalar FFmpeg y OpenVoice MIT
+        shell: bash
+        run: |
+          set -euxo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
+          git clone --depth 1 https://github.com/myshell-ai/OpenVoice.git OpenVoice
+          python -m pip install -U pip
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install "transformers>=4.46,<5" "huggingface_hub>=0.30" safetensors scipy numpy librosa soundfile edge-tts imageio-ffmpeg "eng_to_ipa>=0.0.2" inflect unidecode pypinyin cn2an jieba langid ipython
+      - name: Sintetizar y convertir las 46 escenas del cuento
+        env:
+          HF_HUB_DISABLE_TELEMETRY: '1'
+          OMP_NUM_THREADS: '3'
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m py_compile chayanta_cuento_saleth_shara_cala_quilla.py
+          python -u chayanta_cuento_saleth_shara_cala_quilla.py
+      - name: Verificar MP3 completo y ZIP
+        shell: bash
+        run: |
+          set -euo pipefail
+          D=CHAYANTA_AUTORIA_SALETH
+          FILE="$D/CHAYANTA_SAPITOS_AUTORA_SALETH_SHARA_CALA_QUILLA.mp3"
+          ZIP="$D/CHAYANTA_SAPITOS_AUTORA_SALETH_SHARA_CALA_QUILLA.zip"
+          test -s "$FILE"
+          test -s "$ZIP"
+          test -s "$D/MUESTRA_ROMALDINA_FEMENINA.mp3"
+          test -s "$D/MUESTRA_CASIANA_FEMENINA.mp3"
+          unzip -tq "$ZIP"
+          ffprobe -v error -show_entries format=duration,size -of default=noprint_wrappers=1 "$FILE"
+          echo MP3_Y_ZIP_FEMENINOS_VERIFICADOS
+      - name: Guardar MP3 y muestras para descarga
+        uses: actions/upload-artifact@v4
+        with:
+          name: CHAYANTA_CUENTO_AUTORA_SALETH_SHARA_CALA_QUILLA
+          path: |
+            CHAYANTA_AUTORIA_SALETH/CHAYANTA_SAPITOS_AUTORA_SALETH_SHARA_CALA_QUILLA.mp3
+            CHAYANTA_AUTORIA_SALETH/CHAYANTA_SAPITOS_AUTORA_SALETH_SHARA_CALA_QUILLA.zip
+            CHAYANTA_AUTORIA_SALETH/MUESTRA_ROMALDINA_FEMENINA.mp3
+            CHAYANTA_AUTORIA_SALETH/MUESTRA_CASIANA_FEMENINA.mp3
+          retention-days: 14
+          if-no-files-found: error
+      - name: Publicar descargas directas en una release aparte
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euxo pipefail
+          D=CHAYANTA_AUTORIA_SALETH
+          TAG="chayanta-autora-saleth-shara-cala-quilla-20261108"
+          gh release create "$TAG" \
+            "$D/CHAYANTA_SAPITOS_AUTORA_SALETH_SHARA_CALA_QUILLA.mp3" \
+            "$D/CHAYANTA_SAPITOS_AUTORA_SALETH_SHARA_CALA_QUILLA.zip" \
+            "$D/MUESTRA_ROMALDINA_FEMENINA.mp3" \
+            "$D/MUESTRA_CASIANA_FEMENINA.mp3" \
+            --repo "${{ github.repository }}" \
+            --target "${{ github.sha }}" \
+            --title "Chayanta - El canto de los sapitos - Saleth Shara cala quilla" \
+            --notes "Crédito de autoría en quechua al comienzo: esta versión es creada por Saleth Shara cala quilla. Dos perfiles femeninos ficticios; no son clones de personas privadas. Quechua del modelo MMS-TTS quh (CC BY-NC 4.0, no comercial). La pronunciación y las edades percibidas de las voces no están validadas."
