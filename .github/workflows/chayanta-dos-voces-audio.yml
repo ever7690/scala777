@@ -1,0 +1,77 @@
+name: Chayanta - narración quechua dos voces y sapitos
+on:
+  push:
+    branches:
+      - chayanta-quechua-colab-20261108
+    paths:
+      - ".github/workflows/chayanta-dos-voces-audio.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  generar-mp3:
+    name: Generar MP3 completo, abuelita, niña y sapitos
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - name: Obtener cuaderno original y versión de dos voces
+        uses: actions/checkout@v4
+
+      - name: Instalar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Instalar motor de audio y dependencias científicas
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install numpy scipy ipython
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          which ffmpeg
+          df -h .
+
+      - name: Generar de forma real el audio quechua del cuaderno
+        shell: bash
+        env:
+          HF_HUB_DISABLE_TELEMETRY: "1"
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          nb = json.loads(Path("CHAYANTA_DOS_VOCES_SAPITOS_COLAB.ipynb").read_text(encoding="utf-8"))
+          assert len(nb["cells"]) == 2 and nb["cells"][1]["cell_type"] == "code"
+          code = "".join(nb["cells"][1]["source"])
+          assert "facebook/mms-tts-quh" in code
+          compile(code, "CHAYANTA_DOS_VOCES_SAPITOS_COLAB.ipynb", "exec")
+          exec(compile(code, "CHAYANTA_DOS_VOCES_SAPITOS_COLAB.ipynb", "exec"), {"__name__":"__main__"})
+          PY
+
+      - name: Comprobar MP3 y WAV y descarga
+        shell: bash
+        run: |
+          set -euo pipefail
+          ls -lh CHAYANTA_QUECHUA_DOS_VOCES/
+          test -s CHAYANTA_QUECHUA_DOS_VOCES/CHAYANTA_SAPITOS_QUECHUA_DOS_VOCES_PRUEBA.mp3
+          test -s CHAYANTA_QUECHUA_DOS_VOCES/CHAYANTA_SAPITOS_QUECHUA_DOS_VOCES_PRUEBA.wav
+          test -s CHAYANTA_SAPITOS_DOS_VOCES_PRUEBA.zip
+          unzip -tq CHAYANTA_SAPITOS_DOS_VOCES_PRUEBA.zip | tail -n 1
+          ffprobe -v error -show_entries format=duration,size -of default=noprint_wrappers=1 CHAYANTA_QUECHUA_DOS_VOCES/CHAYANTA_SAPITOS_QUECHUA_DOS_VOCES_PRUEBA.mp3
+          echo "MP3_Y_PAQUETE_VERIFICADOS"
+
+      - name: Guardar grabación para descargarla desde GitHub
+        uses: actions/upload-artifact@v4
+        with:
+          name: CHAYANTA_SAPITOS_DOS_VOCES_AUDIO_COMPLETO
+          path: |
+            CHAYANTA_SAPITOS_DOS_VOCES_PRUEBA.zip
+            CHAYANTA_QUECHUA_DOS_VOCES/CHAYANTA_SAPITOS_QUECHUA_DOS_VOCES_PRUEBA.mp3
+            CHAYANTA_QUECHUA_DOS_VOCES/PRUEBA_ABUELITA_ROMALDINA.mp3
+            CHAYANTA_QUECHUA_DOS_VOCES/PRUEBA_NIÑA_CASIANA.mp3
+          retention-days: 14
+          if-no-files-found: error
