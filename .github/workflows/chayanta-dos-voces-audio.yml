@@ -5,6 +5,7 @@ on:
       - chayanta-quechua-colab-20261108
     paths:
       - ".github/workflows/chayanta-dos-voces-audio.yml"
+      - "CHAYANTA_DOS_VOCES_SAPITOS_COLAB.ipynb"
   workflow_dispatch:
 
 permissions:
